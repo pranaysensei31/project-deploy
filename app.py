@@ -225,16 +225,16 @@ st.markdown("""
 # ✅ REMOVED: Navigation buttons block (big green pills)
 # nav_cols = st.columns([1, 1, 1, 1, 6])
 # with nav_cols[0]:
-#     if st.button("🏠 Home", use_container_width=True):
+#     if st.button("Home", use_container_width=True):
 #         st.rerun()
 # with nav_cols[1]:
-#     if st.button("📈 Stocks", use_container_width=True):
+#     if st.button("Stocks", use_container_width=True):
 #         st.switch_page("pages/1_Stocks.py")
 # with nav_cols[2]:
-#     if st.button("💼 Mutual Funds", use_container_width=True):
+#     if st.button("Mutual Funds", use_container_width=True):
 #         st.switch_page("pages/2_Mutual_funds.py")
 # with nav_cols[3]:
-#     if st.button("🥇 Commodities", use_container_width=True):
+#     if st.button("Commodities", use_container_width=True):
 #         st.switch_page("pages/3_commodities.py")
 
 st.markdown("<br>", unsafe_allow_html=True)
@@ -248,10 +248,10 @@ st.markdown("""
         Powered by advanced AI and real-time market data.
     </div>
     <div class="feature-pills">
-        <span class="feature-pill">🤖 AI-Powered Insights</span>
-        <span class="feature-pill">📊 Real-time Data</span>
-        <span class="feature-pill">💼 Portfolio Analytics</span>
-        <span class="feature-pill">🎯 Risk Assessment</span>
+        <span class="feature-pill"> AI-Powered Insights</span>
+        <span class="feature-pill"> Real-time Data</span>
+        <span class="feature-pill"> Portfolio Analytics</span>
+        <span class="feature-pill"> Risk Assessment</span>
     </div>
 </div>
 """, unsafe_allow_html=True)
@@ -342,7 +342,7 @@ with section_cols[2]:
     st.markdown("""
     <div class="section-card">
         <div class="card-content">
-            <div class="card-icon">🥇</div>
+            <div class="card-icon"></div>
             <div class="card-title">Commodities</div>
             <div class="card-description">
                 Track real-time prices of gold, silver, crude oil, and other commodities. 

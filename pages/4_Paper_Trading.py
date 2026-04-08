@@ -174,17 +174,12 @@ if "paper_selected_ticker" not in st.session_state:
     st.session_state["paper_selected_ticker"] = "AAPL"
 
 
-# ── Cloud-safe helpers ────────────────────────────────────────────────────────
-# Always use yf.download() – never Ticker.history() – on cloud deployments.
-
 @st.cache_data(ttl=120)
 def _download_close(ticker: str, period: str = "5d") -> pd.Series:
-    """Return a Close price Series using yf.download (cloud-safe)."""
     try:
         df = yf.download(ticker, period=period, interval="1d", progress=False, auto_adjust=True)
         if df is None or df.empty:
             return pd.Series(dtype=float)
-        # Handle MultiIndex columns
         if isinstance(df.columns, pd.MultiIndex):
             df.columns = df.columns.get_level_values(0)
         close = df["Close"].dropna()
@@ -195,7 +190,6 @@ def _download_close(ticker: str, period: str = "5d") -> pd.Series:
 
 @st.cache_data(ttl=120)
 def yf_quote(ticker: str):
-    """Return (last_close, change, change_pct) — cloud-safe."""
     close = _download_close(ticker, period="5d")
     if close.empty or len(close) < 2:
         return None, None, None
@@ -208,7 +202,6 @@ def yf_quote(ticker: str):
 
 @st.cache_data(ttl=300)
 def fx_usdinr() -> float:
-    """USD → INR rate, cloud-safe."""
     close = _download_close("USDINR=X", period="5d")
     if close.empty:
         return 0.0
@@ -217,40 +210,27 @@ def fx_usdinr() -> float:
 
 @st.cache_data(ttl=60)
 def live_price_inr(ticker: str):
-    """
-    Returns (price_inr, currency_str).
-    Uses yf.download — works on Streamlit Cloud.
-    """
     try:
         close = _download_close(ticker, period="5d")
         if close.empty:
             return None, ""
-
         price = float(close.iloc[-1])
-
-        # Determine currency from info (best-effort; may be empty on cloud)
         try:
             info = yf.Ticker(ticker).info or {}
             currency = (info.get("currency") or "").upper()
         except Exception:
             currency = ""
-
-        # Fallback: infer currency from ticker suffix
         if not currency:
             if ticker.upper().endswith(".NS") or ticker.upper().endswith(".BO"):
                 currency = "INR"
             else:
                 currency = "USD"
-
         if currency == "USD":
             fx = fx_usdinr()
             if fx > 0:
                 return price * fx, currency
             return None, currency
-
-        # Already INR (NSE / BSE stocks)
         return price, currency
-
     except Exception:
         return None, ""
 
@@ -291,7 +271,10 @@ if not st.session_state["user"]:
         signup_pass = st.text_input("New Password", type="password", key="signup_pass")
         if st.button("Create Account", use_container_width=True):
             ok, msg = signup_user(signup_email, signup_pass)
-            st.success(msg) if ok else st.error(msg)
+            if ok:
+                st.success(msg)
+            else:
+                st.error(msg)
 
     st.stop()
 
@@ -432,24 +415,30 @@ with tab_trade:
             else:
                 st.success(f"Live Price (INR): ₹{p:,.2f}  |  Currency: {c}")
 
-        c1, c2 = st.columns(2)
-        with c1:
+        col1, col2 = st.columns(2)
+        with col1:
             if st.button("✅ BUY", use_container_width=True):
                 p, c = live_price_inr(ticker)
                 if p is None:
                     st.error("Price not available.")
                 else:
                     ok, msg = buy_stock(user_id=user_id, ticker=ticker, qty=float(qty), price_inr=float(p))
-                    st.success(msg) if ok else st.error(msg)
+                    if ok:
+                        st.success(msg)
+                    else:
+                        st.error(msg)
 
-        with c2:
+        with col2:
             if st.button("❌ SELL", use_container_width=True):
                 p, c = live_price_inr(ticker)
                 if p is None:
                     st.error("Price not available.")
                 else:
                     ok, msg = sell_stock(user_id=user_id, ticker=ticker, qty=float(qty), price_inr=float(p))
-                    st.success(msg) if ok else st.error(msg)
+                    if ok:
+                        st.success(msg)
+                    else:
+                        st.error(msg)
 
     with right:
         st.subheader("Portfolio Snapshot")
@@ -462,17 +451,15 @@ with tab_trade:
             pnl_values = []
 
             for _, row in holdings.iterrows():
-                t   = row["ticker"]
-                q   = float(row["qty"])
+                t = row["ticker"]
+                q = float(row["qty"])
                 avg_raw = row["avg_buy_price_inr"]
                 avg = float(avg_raw) if avg_raw is not None else 0.0
                 if np.isnan(avg):
                     avg = 0.0
-
                 live, _ = live_price_inr(t)
                 if live is None or np.isnan(live):
                     live = avg
-
                 val = live * q
                 pnl = (live - avg) * q
                 live_values.append(val)
@@ -480,15 +467,15 @@ with tab_trade:
 
             holdings = holdings.copy()
             holdings["live_value_inr"] = live_values
-            holdings["pnl_inr"]        = pnl_values
+            holdings["pnl_inr"] = pnl_values
 
             total_holdings = float(np.nansum(live_values))
-            wallet         = float(get_balance(user_id))
+            wallet = float(get_balance(user_id))
             total_portfolio = wallet + total_holdings
 
             m1, m2, m3 = st.columns(3)
-            m1.metric("Holdings Value",  fmt_inr(total_holdings))
-            m2.metric("Wallet Cash",     fmt_inr(wallet))
+            m1.metric("Holdings Value", fmt_inr(total_holdings))
+            m2.metric("Wallet Cash", fmt_inr(wallet))
             m3.metric("Total Portfolio", fmt_inr(total_portfolio))
 
             st.dataframe(holdings, use_container_width=True)
@@ -502,6 +489,7 @@ with tab_portfolio:
         st.info("No holdings yet.")
     else:
         st.dataframe(holdings, use_container_width=True)
+
 
 # ── ORDERS ────────────────────────────────────────────────────────────────────
 with tab_orders:
