@@ -42,7 +42,7 @@ h1, h2, h3, h4, h5 {
     color: rgba(255,255,255,0.96) !important;
     opacity: 1 !important;
 }
-div[data-testid="stCaptionContainer"], 
+div[data-testid="stCaptionContainer"],
 div[data-testid="stCaptionContainer"] * {
     color: rgba(255,255,255,0.78) !important;
     font-weight: 750 !important;
@@ -174,58 +174,73 @@ if "paper_selected_ticker" not in st.session_state:
     st.session_state["paper_selected_ticker"] = "AAPL"
 
 
-# ✅ CLOUD FIX: use Ticker.history() instead of yf.download() for all quotes
-# yf.download() gets rate-limited on cloud IPs; Ticker.history() is more reliable
+# ── Cloud-safe helpers ────────────────────────────────────────────────────────
+# Always use yf.download() – never Ticker.history() – on cloud deployments.
+
+@st.cache_data(ttl=120)
+def _download_close(ticker: str, period: str = "5d") -> pd.Series:
+    """Return a Close price Series using yf.download (cloud-safe)."""
+    try:
+        df = yf.download(ticker, period=period, interval="1d", progress=False, auto_adjust=True)
+        if df is None or df.empty:
+            return pd.Series(dtype=float)
+        # Handle MultiIndex columns
+        if isinstance(df.columns, pd.MultiIndex):
+            df.columns = df.columns.get_level_values(0)
+        close = df["Close"].dropna()
+        return close
+    except Exception:
+        return pd.Series(dtype=float)
+
+
 @st.cache_data(ttl=120)
 def yf_quote(ticker: str):
-    """Return last close, change, change% using Ticker.history (cloud-safe)"""
-    try:
-        tk = yf.Ticker(ticker)
-        hist = tk.history(period="5d", interval="1d")
-        if hist is None or hist.empty:
-            return None, None, None
-        close = hist["Close"].dropna()
-        if len(close) < 2:
-            return None, None, None
-        last_close = float(close.iloc[-1])
-        prev_close = float(close.iloc[-2])
-        change = last_close - prev_close
-        pct = (change / prev_close) * 100 if prev_close != 0 else 0.0
-        return last_close, change, pct
-    except Exception:
+    """Return (last_close, change, change_pct) — cloud-safe."""
+    close = _download_close(ticker, period="5d")
+    if close.empty or len(close) < 2:
         return None, None, None
+    last = float(close.iloc[-1])
+    prev = float(close.iloc[-2])
+    chg = last - prev
+    pct = (chg / prev * 100) if prev != 0 else 0.0
+    return last, chg, pct
 
 
 @st.cache_data(ttl=300)
-def fx_usdinr():
-    """USD to INR using Ticker.history (cloud-safe)"""
-    try:
-        tk = yf.Ticker("USDINR=X")
-        hist = tk.history(period="5d", interval="1d")
-        if hist is None or hist.empty:
-            return 0.0
-        return float(hist["Close"].dropna().iloc[-1])
-    except Exception:
+def fx_usdinr() -> float:
+    """USD → INR rate, cloud-safe."""
+    close = _download_close("USDINR=X", period="5d")
+    if close.empty:
         return 0.0
+    return float(close.iloc[-1])
 
 
 @st.cache_data(ttl=60)
 def live_price_inr(ticker: str):
-    """Get live price in INR even for US stocks."""
+    """
+    Returns (price_inr, currency_str).
+    Uses yf.download — works on Streamlit Cloud.
+    """
     try:
-        tk = yf.Ticker(ticker)
-        info = tk.info or {}
-        currency = (info.get("currency") or "").upper()
-
-        hist = tk.history(period="5d", interval="1d")
-        if hist is None or hist.empty:
-            return None, currency
-
-        close = hist["Close"].dropna()
-        if len(close) == 0:
-            return None, currency
+        close = _download_close(ticker, period="5d")
+        if close.empty:
+            return None, ""
 
         price = float(close.iloc[-1])
+
+        # Determine currency from info (best-effort; may be empty on cloud)
+        try:
+            info = yf.Ticker(ticker).info or {}
+            currency = (info.get("currency") or "").upper()
+        except Exception:
+            currency = ""
+
+        # Fallback: infer currency from ticker suffix
+        if not currency:
+            if ticker.upper().endswith(".NS") or ticker.upper().endswith(".BO"):
+                currency = "INR"
+            else:
+                currency = "USD"
 
         if currency == "USD":
             fx = fx_usdinr()
@@ -233,7 +248,9 @@ def live_price_inr(ticker: str):
                 return price * fx, currency
             return None, currency
 
+        # Already INR (NSE / BSE stocks)
         return price, currency
+
     except Exception:
         return None, ""
 
@@ -248,6 +265,7 @@ def fmt_inr(x):
         return "₹0.00"
 
 
+# ── Auth gate ─────────────────────────────────────────────────────────────────
 if not st.session_state["user"]:
     st.title("🧾 FinSight Paper Trading")
     st.caption("Educational simulator. Trade with virtual INR using real market prices (Yahoo Finance).")
@@ -283,7 +301,7 @@ user_id = user["id"]
 
 ensure_wallet(user_id)
 
-# Top Bar
+# ── Top bar ───────────────────────────────────────────────────────────────────
 top1, top2, top3 = st.columns([2.3, 2.2, 1.0], gap="large")
 
 with top1:
@@ -304,61 +322,62 @@ with top3:
 
 st.write("")
 
-# Market strip
+# ── Market strip ──────────────────────────────────────────────────────────────
 st.markdown("### Market Overview")
 idx_cols = st.columns(4, gap="large")
 
 indices = [
-    ("NIFTY", "^NSEI"),
-    ("SENSEX", "^BSESN"),
+    ("NIFTY",     "^NSEI"),
+    ("SENSEX",    "^BSESN"),
     ("BANKNIFTY", "^NSEBANK"),
-    ("NASDAQ", "^IXIC"),
+    ("NASDAQ",    "^IXIC"),
 ]
 
 for i, (name, tick) in enumerate(indices):
     price, chg, pct = yf_quote(tick)
     if price is None:
-        idx_cols[i].metric(name, "N/A", "")
+        idx_cols[i].metric(name, "—", "")
     else:
         idx_cols[i].metric(name, f"{price:,.2f}", f"{chg:+.2f} ({pct:+.2f}%)")
 
 st.write("")
 
-# Tabs
+# ── Tabs ──────────────────────────────────────────────────────────────────────
 tab_explore, tab_trade, tab_portfolio, tab_orders = st.tabs(
     ["Explore", "Paper Trade", "Portfolio", "Orders"]
 )
 
+# ── EXPLORE ───────────────────────────────────────────────────────────────────
 with tab_explore:
     st.subheader("Most traded stocks on FinSight")
 
     most_traded = {
-        "Reliance": "RELIANCE.NS",
-        "TCS": "TCS.NS",
-        "Infosys": "INFY.NS",
-        "HDFC Bank": "HDFCBANK.NS",
-        "ICICI Bank": "ICICIBANK.NS",
-        "SBI": "SBIN.NS",
-        "ITC": "ITC.NS",
-        "Bharti Airtel": "BHARTIARTL.NS",
-        "Axis Bank": "AXISBANK.NS",
-        "Kotak Bank": "KOTAKBANK.NS",
+        "Reliance":           "RELIANCE.NS",
+        "TCS":                "TCS.NS",
+        "Infosys":            "INFY.NS",
+        "HDFC Bank":          "HDFCBANK.NS",
+        "ICICI Bank":         "ICICIBANK.NS",
+        "SBI":                "SBIN.NS",
+        "ITC":                "ITC.NS",
+        "Bharti Airtel":      "BHARTIARTL.NS",
+        "Axis Bank":          "AXISBANK.NS",
+        "Kotak Bank":         "KOTAKBANK.NS",
         "Hindustan Unilever": "HINDUNILVR.NS",
-        "L&T": "LT.NS",
-        "Adani Ports": "ADANIPORTS.NS",
-        "Tata Steel": "TATASTEEL.NS",
-        "Wipro": "WIPRO.NS",
-        "Zomato": "ZOMATO.NS",
-        "Apple": "AAPL",
-        "Microsoft": "MSFT",
-        "Amazon": "AMZN",
-        "Google": "GOOGL",
-        "Meta": "META",
-        "Tesla": "TSLA",
-        "NVIDIA": "NVDA",
-        "AMD": "AMD",
-        "Netflix": "NFLX",
-        "Intel": "INTC",
+        "L&T":                "LT.NS",
+        "Adani Ports":        "ADANIPORTS.NS",
+        "Tata Steel":         "TATASTEEL.NS",
+        "Wipro":              "WIPRO.NS",
+        "Zomato":             "ZOMATO.NS",
+        "Apple":              "AAPL",
+        "Microsoft":          "MSFT",
+        "Amazon":             "AMZN",
+        "Google":             "GOOGL",
+        "Meta":               "META",
+        "Tesla":              "TSLA",
+        "NVIDIA":             "NVDA",
+        "AMD":                "AMD",
+        "Netflix":            "NFLX",
+        "Intel":              "INTC",
     }
 
     if search.strip():
@@ -371,7 +390,7 @@ with tab_explore:
         price, chg, pct = yf_quote(tk)
         with grid[i % 4]:
             if price is None:
-                st.metric(f"{nm} ({tk})", "N/A", "")
+                st.metric(f"{nm} ({tk})", "Loading…", "")
             else:
                 st.metric(f"{nm} ({tk})", f"{price:,.2f}", f"{chg:+.2f} ({pct:+.2f}%)")
             if st.button(f"Trade {tk}", key=f"trade_btn_{tk}", use_container_width=True):
@@ -389,6 +408,7 @@ with tab_explore:
         st.dataframe(holdings, use_container_width=True)
 
 
+# ── PAPER TRADE ───────────────────────────────────────────────────────────────
 with tab_trade:
     st.subheader("Paper Trade (Virtual INR)")
 
@@ -408,9 +428,9 @@ with tab_trade:
         if st.button("Fetch Live Price", use_container_width=True):
             p, c = live_price_inr(ticker)
             if p is None:
-                st.error("Could not fetch live price.")
+                st.error("Could not fetch live price. Check the ticker and try again.")
             else:
-                st.success(f"Live Price (INR): ₹{p:,.2f}  | Currency: {c}")
+                st.success(f"Live Price (INR): ₹{p:,.2f}  |  Currency: {c}")
 
         c1, c2 = st.columns(2)
         with c1:
@@ -442,8 +462,8 @@ with tab_trade:
             pnl_values = []
 
             for _, row in holdings.iterrows():
-                t = row["ticker"]
-                q = float(row["qty"])
+                t   = row["ticker"]
+                q   = float(row["qty"])
                 avg_raw = row["avg_buy_price_inr"]
                 avg = float(avg_raw) if avg_raw is not None else 0.0
                 if np.isnan(avg):
@@ -460,20 +480,21 @@ with tab_trade:
 
             holdings = holdings.copy()
             holdings["live_value_inr"] = live_values
-            holdings["pnl_inr"] = pnl_values
+            holdings["pnl_inr"]        = pnl_values
 
             total_holdings = float(np.nansum(live_values))
-            wallet = float(get_balance(user_id))
+            wallet         = float(get_balance(user_id))
             total_portfolio = wallet + total_holdings
 
             m1, m2, m3 = st.columns(3)
-            m1.metric("Holdings Value", fmt_inr(total_holdings))
-            m2.metric("Wallet Cash", fmt_inr(wallet))
+            m1.metric("Holdings Value",  fmt_inr(total_holdings))
+            m2.metric("Wallet Cash",     fmt_inr(wallet))
             m3.metric("Total Portfolio", fmt_inr(total_portfolio))
 
             st.dataframe(holdings, use_container_width=True)
 
 
+# ── PORTFOLIO ─────────────────────────────────────────────────────────────────
 with tab_portfolio:
     st.subheader("Portfolio")
     holdings = get_holdings(user_id)
@@ -482,6 +503,7 @@ with tab_portfolio:
     else:
         st.dataframe(holdings, use_container_width=True)
 
+# ── ORDERS ────────────────────────────────────────────────────────────────────
 with tab_orders:
     st.subheader("Orders / Trades")
     trades = get_trades(user_id)
