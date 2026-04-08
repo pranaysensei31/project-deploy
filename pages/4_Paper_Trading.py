@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 import streamlit as st
 import yfinance as yf
+yf.set_tz_cache_location("/tmp")
 
 from utils.auth import signup_user, login_user, logout
 from utils.trading_db import (

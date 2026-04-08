@@ -1,4 +1,6 @@
 # app.py - HOME PAGE
+import yfinance as yf
+yf.set_tz_cache_location("/tmp")
 import streamlit as st
 import yfinance as yf
 

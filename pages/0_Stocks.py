@@ -12,6 +12,7 @@ try:
     YF_AVAILABLE = True
 except Exception:
     YF_AVAILABLE = False
+    yf.set_tz_cache_location("/tmp")
 
 try:
     from langchain_groq import ChatGroq
