@@ -14,7 +14,6 @@ from utils.trading_db import (
     sell_stock,
 )
 
-
 st.set_page_config(
     page_title="FinSight | Paper Trading",
     page_icon="🧾",
@@ -22,48 +21,33 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-
 st.markdown("""
 <style>
-/* =========================
-   GLOBAL APP THEME
-========================= */
 .stApp {
     background: radial-gradient(circle at 10% 0%, #0b1220 0%, #050814 45%, #050814 100%);
     font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
     color: #ffffff !important;
 }
-
 .block-container {
     max-width: 1500px;
     padding-top: 0.8rem;
     padding-bottom: 2.5rem;
 }
-
-/* Headings */
 h1, h2, h3, h4, h5 {
     color: #ffffff !important;
     font-weight: 950 !important;
     letter-spacing: -0.2px;
 }
-
-/* All markdown text (prevents fade / low contrast) */
 .stMarkdown, .stMarkdown * {
     color: rgba(255,255,255,0.96) !important;
     opacity: 1 !important;
 }
-
-/* Captions */
 div[data-testid="stCaptionContainer"], 
 div[data-testid="stCaptionContainer"] * {
     color: rgba(255,255,255,0.78) !important;
     font-weight: 750 !important;
     opacity: 1 !important;
 }
-
-/* =========================
-   PANEL / CARD LOOK
-========================= */
 .panel {
     border-radius: 22px;
     padding: 18px;
@@ -71,33 +55,23 @@ div[data-testid="stCaptionContainer"] * {
     border: 1px solid rgba(255,255,255,0.10);
     box-shadow: 0 18px 60px rgba(0,0,0,0.40);
 }
-
-/* =========================
-   METRICS (NUMBERS WHITE FIX)
-========================= */
 div[data-testid="stMetricLabel"] *,
 div[data-testid="stMetricLabel"] {
     color: rgba(255,255,255,0.86) !important;
     font-weight: 900 !important;
     opacity: 1 !important;
 }
-
 div[data-testid="stMetricValue"] *,
 div[data-testid="stMetricValue"] {
     color: #ffffff !important;
     font-weight: 950 !important;
     opacity: 1 !important;
 }
-
 div[data-testid="stMetricDelta"] *,
 div[data-testid="stMetricDelta"] {
     font-weight: 950 !important;
     opacity: 1 !important;
 }
-
-/* =========================
-   INPUT LABELS (Ticker, Quantity etc.)
-========================= */
 label,
 div[data-testid="stWidgetLabel"] * {
     color: #ffffff !important;
@@ -105,12 +79,6 @@ div[data-testid="stWidgetLabel"] * {
     font-weight: 900 !important;
     letter-spacing: 0.2px !important;
 }
-
-/* =========================
-   ✅ FIX WHITE INPUT BOXES (IMPORTANT UPDATE)
-========================= */
-
-/* Outer input containers (Ticker, Search, etc.) */
 div[data-baseweb="input"] > div,
 div[data-baseweb="select"] > div,
 div[data-baseweb="base-input"] > div,
@@ -121,8 +89,6 @@ textarea {
     border-radius: 18px !important;
     box-shadow: none !important;
 }
-
-/* Input text itself */
 div[data-baseweb="input"] input,
 div[data-baseweb="base-input"] input,
 textarea {
@@ -130,27 +96,18 @@ textarea {
     font-weight: 950 !important;
     background: transparent !important;
 }
-
-/* Placeholder */
 div[data-baseweb="input"] input::placeholder,
 textarea::placeholder {
     color: rgba(255,255,255,0.55) !important;
     font-weight: 800 !important;
 }
-
-/* Sometimes Streamlit forces white input backgrounds */
 input {
     background: transparent !important;
     color: #ffffff !important;
 }
-
-/* =========================
-   ✅ FIX NUMBER INPUT (+ / -) STYLING
-========================= */
 div[data-testid="stNumberInput"] div[data-baseweb="input"] > div {
     background: rgba(10, 15, 35, 0.92) !important;
 }
-
 div[data-testid="stNumberInput"] button {
     background: rgba(255,255,255,0.06) !important;
     border: 1px solid rgba(255,255,255,0.10) !important;
@@ -158,16 +115,11 @@ div[data-testid="stNumberInput"] button {
     color: #ffffff !important;
     font-weight: 950 !important;
 }
-
 div[data-testid="stNumberInput"] button:hover {
     background: rgba(255,255,255,0.10) !important;
     border-color: rgba(34,197,94,0.35) !important;
     transform: translateY(-1px);
 }
-
-/* =========================
-   BUTTONS (PRO THEME)
-========================= */
 div.stButton > button,
 div[data-testid="stDownloadButton"] > button {
     border-radius: 16px !important;
@@ -181,45 +133,30 @@ div[data-testid="stDownloadButton"] > button {
     box-shadow: 0 16px 60px rgba(0,0,0,0.35);
     transition: 0.2s;
 }
-
 div.stButton > button:hover,
 div[data-testid="stDownloadButton"] > button:hover {
     transform: translateY(-2px);
     filter: brightness(1.05);
 }
-
-/* =========================
-   TABS (Explore / Paper Trade etc.)
-========================= */
 button[data-baseweb="tab"] {
     font-weight: 950 !important;
     opacity: 0.92 !important;
     color: rgba(255,255,255,0.75) !important;
 }
-
 button[data-baseweb="tab"][aria-selected="true"] {
     color: #ffffff !important;
     opacity: 1 !important;
 }
-
 div[data-baseweb="tab-highlight"] {
     background: linear-gradient(90deg, #22C55E, #3B82F6) !important;
     height: 3px !important;
     border-radius: 999px !important;
 }
-
-/* =========================
-   DATAFRAME LOOK (optional)
-========================= */
 div[data-testid="stDataFrame"] {
     border-radius: 18px !important;
     overflow: hidden !important;
     border: 1px solid rgba(255,255,255,0.10) !important;
 }
-
-/* =========================
-   MOBILE RESPONSIVE
-========================= */
 @media(max-width: 1200px) {
     .block-container {
         padding-left: 1rem;
@@ -237,17 +174,19 @@ if "paper_selected_ticker" not in st.session_state:
     st.session_state["paper_selected_ticker"] = "AAPL"
 
 
+# ✅ CLOUD FIX: use Ticker.history() instead of yf.download() for all quotes
+# yf.download() gets rate-limited on cloud IPs; Ticker.history() is more reliable
 @st.cache_data(ttl=120)
 def yf_quote(ticker: str):
-    """Return last close, change, change% (safe)"""
+    """Return last close, change, change% using Ticker.history (cloud-safe)"""
     try:
-        df = yf.download(ticker, period="5d", interval="1d", progress=False)
-        if df is None or df.empty:
+        tk = yf.Ticker(ticker)
+        hist = tk.history(period="5d", interval="1d")
+        if hist is None or hist.empty:
             return None, None, None
-        close = df["Close"].dropna()
+        close = hist["Close"].dropna()
         if len(close) < 2:
             return None, None, None
-
         last_close = float(close.iloc[-1])
         prev_close = float(close.iloc[-2])
         change = last_close - prev_close
@@ -259,17 +198,17 @@ def yf_quote(ticker: str):
 
 @st.cache_data(ttl=300)
 def fx_usdinr():
-    """USD to INR"""
+    """USD to INR using Ticker.history (cloud-safe)"""
     try:
-        df = yf.download("USDINR=X", period="5d", interval="1d", progress=False)
-        if df is None or df.empty:
+        tk = yf.Ticker("USDINR=X")
+        hist = tk.history(period="5d", interval="1d")
+        if hist is None or hist.empty:
             return 0.0
-        return float(df["Close"].dropna().iloc[-1])
+        return float(hist["Close"].dropna().iloc[-1])
     except Exception:
         return 0.0
 
 
-# ✅ FIX 1: changed period from "2d" to "5d" and added dropna()
 @st.cache_data(ttl=60)
 def live_price_inr(ticker: str):
     """Get live price in INR even for US stocks."""
@@ -278,11 +217,11 @@ def live_price_inr(ticker: str):
         info = tk.info or {}
         currency = (info.get("currency") or "").upper()
 
-        hist = tk.history(period="5d", interval="1d")  # ✅ was "2d"
+        hist = tk.history(period="5d", interval="1d")
         if hist is None or hist.empty:
             return None, currency
 
-        close = hist["Close"].dropna()  # ✅ dropna before iloc
+        close = hist["Close"].dropna()
         if len(close) == 0:
             return None, currency
 
@@ -299,7 +238,6 @@ def live_price_inr(ticker: str):
         return None, ""
 
 
-# ✅ FIX 2: guard against NaN in fmt_inr
 def fmt_inr(x):
     try:
         val = float(x)
@@ -391,41 +329,37 @@ tab_explore, tab_trade, tab_portfolio, tab_orders = st.tabs(
     ["Explore", "Paper Trade", "Portfolio", "Orders"]
 )
 
-
 with tab_explore:
     st.subheader("Most traded stocks on FinSight")
 
     most_traded = {
-    # India (NSE)
-    "Reliance": "RELIANCE.NS",
-    "TCS": "TCS.NS",
-    "Infosys": "INFY.NS",
-    "HDFC Bank": "HDFCBANK.NS",
-    "ICICI Bank": "ICICIBANK.NS",
-    "SBI": "SBIN.NS",
-    "ITC": "ITC.NS",
-    "Bharti Airtel": "BHARTIARTL.NS",
-    "Axis Bank": "AXISBANK.NS",
-    "Kotak Bank": "KOTAKBANK.NS",
-    "Hindustan Unilever": "HINDUNILVR.NS",
-    "L&T": "LT.NS",
-    "Adani Ports": "ADANIPORTS.NS",
-    "Tata Steel": "TATASTEEL.NS",
-    "Wipro": "WIPRO.NS",
-    "Zomato": "ZOMATO.NS",
-
-    # US (NASDAQ/NYSE)
-    "Apple": "AAPL",
-    "Microsoft": "MSFT",
-    "Amazon": "AMZN",
-    "Google": "GOOGL",
-    "Meta": "META",
-    "Tesla": "TSLA",
-    "NVIDIA": "NVDA",
-    "AMD": "AMD",
-    "Netflix": "NFLX",
-    "Intel": "INTC",
-}
+        "Reliance": "RELIANCE.NS",
+        "TCS": "TCS.NS",
+        "Infosys": "INFY.NS",
+        "HDFC Bank": "HDFCBANK.NS",
+        "ICICI Bank": "ICICIBANK.NS",
+        "SBI": "SBIN.NS",
+        "ITC": "ITC.NS",
+        "Bharti Airtel": "BHARTIARTL.NS",
+        "Axis Bank": "AXISBANK.NS",
+        "Kotak Bank": "KOTAKBANK.NS",
+        "Hindustan Unilever": "HINDUNILVR.NS",
+        "L&T": "LT.NS",
+        "Adani Ports": "ADANIPORTS.NS",
+        "Tata Steel": "TATASTEEL.NS",
+        "Wipro": "WIPRO.NS",
+        "Zomato": "ZOMATO.NS",
+        "Apple": "AAPL",
+        "Microsoft": "MSFT",
+        "Amazon": "AMZN",
+        "Google": "GOOGL",
+        "Meta": "META",
+        "Tesla": "TSLA",
+        "NVIDIA": "NVDA",
+        "AMD": "AMD",
+        "Netflix": "NFLX",
+        "Intel": "INTC",
+    }
 
     if search.strip():
         most_traded = {"Search Result": search.strip().upper()}
@@ -510,14 +444,13 @@ with tab_trade:
             for _, row in holdings.iterrows():
                 t = row["ticker"]
                 q = float(row["qty"])
-                # ✅ FIX 3: safely parse avg, fallback to 0 if None/NaN
                 avg_raw = row["avg_buy_price_inr"]
                 avg = float(avg_raw) if avg_raw is not None else 0.0
                 if np.isnan(avg):
                     avg = 0.0
 
                 live, _ = live_price_inr(t)
-                if live is None or np.isnan(live):  # ✅ also guard live price
+                if live is None or np.isnan(live):
                     live = avg
 
                 val = live * q
@@ -529,7 +462,7 @@ with tab_trade:
             holdings["live_value_inr"] = live_values
             holdings["pnl_inr"] = pnl_values
 
-            total_holdings = float(np.nansum(live_values))  # ✅ nansum instead of sum
+            total_holdings = float(np.nansum(live_values))
             wallet = float(get_balance(user_id))
             total_portfolio = wallet + total_holdings
 
@@ -540,9 +473,7 @@ with tab_trade:
 
             st.dataframe(holdings, use_container_width=True)
 
-# =========================
-# PORTFOLIO
-# =========================
+
 with tab_portfolio:
     st.subheader("Portfolio")
     holdings = get_holdings(user_id)
@@ -560,7 +491,7 @@ with tab_orders:
         st.dataframe(trades, use_container_width=True)
 
 st.caption("FinSight • Paper Trading • Educational only • Not financial advice")
-# Floating chatbot (if exists)
+
 try:
     from utils.floating_chatbot import render_floating_chatbot
     render_floating_chatbot()

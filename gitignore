@@ -5,3 +5,6 @@ __pycache__/
 data/finsight.db
 backup_pages/
 *.pyc
+venv/
+.venv/
+env/
