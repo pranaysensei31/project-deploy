@@ -269,7 +269,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Market Overview
-st.markdown('<div class="section-header">📊 Market Overview</div>', unsafe_allow_html=True)
+st.markdown('<div class="section-header"> Market Overview</div>', unsafe_allow_html=True)
 
 @st.cache_data(ttl=300)
 @st.cache_data(ttl=300)
