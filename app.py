@@ -29,6 +29,19 @@ st.markdown("""
     padding-top: 2rem;
     padding-bottom: 2rem;
 }
+            /* Hide Streamlit default header */
+header[data-testid="stHeader"] {
+    display: none !important;
+}
+div[data-testid="stToolbar"] {
+    display: none !important;
+}
+#MainMenu {
+    display: none !important;
+}
+.stDeployButton {
+    display: none !important;
+}
 
 /* =========================
    NAVBAR (FLOATING GLASS)
