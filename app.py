@@ -6,7 +6,6 @@ import yfinance as yf
 
 st.set_page_config(
     page_title="FinSight | AI Financial Advisor",
-    page_icon="📊",
     layout="wide",
     initial_sidebar_state="collapsed"
 )
@@ -231,7 +230,7 @@ div.stButton > button:hover {
 # Navigation Bar
 st.markdown("""
 <div class="nav-container">
-    <span class="nav-logo">📊 FinSight</span>
+    <span class="nav-logo"> FinSight</span>
 </div>
 """, unsafe_allow_html=True)
 
@@ -323,7 +322,7 @@ with section_cols[0]:
     st.markdown("""
     <div class="section-card">
         <div class="card-content">
-            <div class="card-icon">📈</div>
+            <div class="card-icon"></div>
             <div class="card-title">Stock Analysis</div>
             <div class="card-description">
                 Deep dive into stocks with AI-powered insights, fundamentals, risk metrics, 
@@ -339,7 +338,7 @@ with section_cols[1]:
     st.markdown("""
     <div class="section-card">
         <div class="card-content">
-            <div class="card-icon">💼</div>
+            <div class="card-icon"></div>
             <div class="card-title">Mutual Funds</div>
             <div class="card-description">
                 Explore top-performing mutual funds, compare returns, and build your 
