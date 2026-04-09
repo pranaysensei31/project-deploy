@@ -85,6 +85,13 @@ st.markdown("""
     div.stButton > button:hover, div[data-testid="stDownloadButton"] > button:hover {
         transform: translateY(-1px); filter: brightness(1.06);
     }
+    
+    /* Hide Streamlit header */
+    header[data-testid="stHeader"] { display: none !important; }
+    div[data-testid="stToolbar"] { display: none !important; }
+    #MainMenu { display: none !important; }
+    .stDeployButton { display: none !important; }
+</style>
 </style>
 """, unsafe_allow_html=True)
 
