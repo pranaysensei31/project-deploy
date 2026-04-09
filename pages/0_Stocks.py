@@ -467,6 +467,11 @@ st.markdown("""
         border: none !important; width: 100%; box-shadow: 0 18px 60px rgba(0,0,0,0.45); transition: 0.2s;
     }
     div.stButton > button:hover { transform: translateY(-1px); filter: brightness(1.06); }
+            header[data-testid="stHeader"] { display: none !important; }
+    div[data-testid="stToolbar"] { display: none !important; }
+    #MainMenu { display: none !important; }
+    .stDeployButton { display: none !important; }
+            
 </style>
 """, unsafe_allow_html=True)
 
