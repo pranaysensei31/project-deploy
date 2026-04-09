@@ -28,7 +28,7 @@ st.set_page_config(
     page_title="FinSight | AI Financial Advisor",
     page_icon="📊",
     layout="wide",
-    initial_sidebar_state="collapsed"
+    initial_sidebar_state="expanded"
 )
 
 if "chat_memory" not in st.session_state:
@@ -485,10 +485,6 @@ st.markdown("""
         border: none !important; width: 100%; box-shadow: 0 18px 60px rgba(0,0,0,0.45); transition: 0.2s;
     }
     div.stButton > button:hover { transform: translateY(-1px); filter: brightness(1.06); }
-    header[data-testid="stHeader"] { display: none !important; }
-    div[data-testid="stToolbar"] { display: none !important; }
-    #MainMenu { display: none !important; }
-    .stDeployButton { display: none !important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -765,7 +761,6 @@ Comparison:
                     worst = comp_df.iloc[-1]["Ticker"]
                     st.caption(f"Top risk-adjusted (Sharpe): {best} | Weakest: {worst}")
 
-            # ── NEW: Benchmark Comparison tab ─────────────────────────────
             with t5:
                 st.subheader(f"Benchmark Comparison — {primary} vs NIFTY 50 & NASDAQ")
 
@@ -780,7 +775,6 @@ Comparison:
                     nifty  = fetch_benchmark_prices("^NSEI",  start_date, end_date)
                     nasdaq = fetch_benchmark_prices("^IXIC",  start_date, end_date)
 
-                    # align stock with each benchmark
                     def align_stock_bench(df_stock: pd.DataFrame, df_bench: pd.DataFrame) -> pd.DataFrame:
                         s = df_stock.rename(columns={"close": "stock"}).set_index("date")
                         b = df_bench.rename(columns={"close": "bench"}).set_index("date")
@@ -793,7 +787,6 @@ Comparison:
                     if merged_nifty.empty and merged_nasdaq.empty:
                         st.info("Benchmark data not available right now. Try again later.")
                     else:
-                        # CAGR helper
                         def series_cagr(series: pd.Series, dates: pd.Series) -> float:
                             try:
                                 years = max(1e-9, (dates.iloc[-1] - dates.iloc[0]).days / 365.25)
@@ -820,28 +813,15 @@ Comparison:
                             c3.metric("NASDAQ CAGR", "N/A")
                             nasdaq_cagr = float("nan")
 
-                        # Normalized growth chart
                         figb = go.Figure()
-
                         stock_norm = normalize_growth(df_primary["close"])
-                        figb.add_trace(go.Scatter(
-                            x=df_primary["date"], y=stock_norm,
-                            mode="lines", name=primary
-                        ))
+                        figb.add_trace(go.Scatter(x=df_primary["date"], y=stock_norm, mode="lines", name=primary))
 
                         if not merged_nifty.empty:
-                            figb.add_trace(go.Scatter(
-                                x=merged_nifty["date"],
-                                y=normalize_growth(merged_nifty["bench"]),
-                                mode="lines", name="NIFTY 50"
-                            ))
+                            figb.add_trace(go.Scatter(x=merged_nifty["date"], y=normalize_growth(merged_nifty["bench"]), mode="lines", name="NIFTY 50"))
 
                         if not merged_nasdaq.empty:
-                            figb.add_trace(go.Scatter(
-                                x=merged_nasdaq["date"],
-                                y=normalize_growth(merged_nasdaq["bench"]),
-                                mode="lines", name="NASDAQ"
-                            ))
+                            figb.add_trace(go.Scatter(x=merged_nasdaq["date"], y=normalize_growth(merged_nasdaq["bench"]), mode="lines", name="NASDAQ"))
 
                         figb.update_layout(
                             title="Benchmark Growth Comparison (Normalized, Start = 1.0)",
@@ -851,7 +831,6 @@ Comparison:
                         )
                         st.plotly_chart(figb, use_container_width=True)
 
-                        # Alpha captions
                         alpha_parts = []
                         if not np.isnan(stock_cagr) and not np.isnan(nifty_cagr):
                             alpha_parts.append(f"vs NIFTY 50: {stock_cagr - nifty_cagr:+.2%}")
@@ -866,12 +845,7 @@ Comparison:
                 st.write("")
                 st.subheader("CSV Export")
                 if csv_data:
-                    st.download_button(
-                        "Download report.csv",
-                        data=csv_data,
-                        file_name="report.csv",
-                        mime="text/csv",
-                    )
+                    st.download_button("Download report.csv", data=csv_data, file_name="report.csv", mime="text/csv")
                 else:
                     st.info("CSV not available for these tickers.")
 

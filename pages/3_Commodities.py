@@ -20,7 +20,7 @@ st.set_page_config(
     page_title="FinSight | Commodities",
     page_icon="🪙",
     layout="wide",
-    initial_sidebar_state="collapsed"
+    initial_sidebar_state="expanded"
 )
 
 st.markdown("""
@@ -85,13 +85,6 @@ st.markdown("""
     div.stButton > button:hover, div[data-testid="stDownloadButton"] > button:hover {
         transform: translateY(-1px); filter: brightness(1.06);
     }
-    
-    /* Hide Streamlit header */
-    header[data-testid="stHeader"] { display: none !important; }
-    div[data-testid="stToolbar"] { display: none !important; }
-    #MainMenu { display: none !important; }
-    .stDeployButton { display: none !important; }
-</style>
 </style>
 """, unsafe_allow_html=True)
 
@@ -127,15 +120,8 @@ COMMODITIES = {
 }
 
 
-# ── Cloud-safe data layer ─────────────────────────────────────────────────────
-# Rule: ALWAYS use yf.download() — never Ticker.history() — on Streamlit Cloud.
-
 @st.cache_data(ttl=180)
 def _safe_download(ticker: str, period: str = "5d") -> pd.Series:
-    """
-    Download Close prices via yf.download (cloud-safe).
-    Returns a plain pd.Series indexed by date.
-    """
     if not YF_AVAILABLE:
         return pd.Series(dtype=float)
     try:
@@ -164,7 +150,6 @@ def get_fx_rate(symbol: str) -> float:
 
 
 def convert_to_inr(price: float, currency: str):
-    """Returns (price_inr, fx_rate, fx_symbol)."""
     try:
         currency = (currency or "").upper().strip()
         if currency == "USD":
@@ -186,7 +171,6 @@ def convert_to_inr(price: float, currency: str):
 
 @st.cache_data(ttl=180)
 def fetch_prices(ticker: str, days: int) -> pd.DataFrame:
-    """Return [date, close] DataFrame — cloud-safe via yf.download."""
     close = _safe_download(ticker, period=f"{days}d")
     if close.empty:
         return pd.DataFrame()
@@ -199,10 +183,6 @@ def fetch_prices(ticker: str, days: int) -> pd.DataFrame:
 
 
 def live_quote(ticker: str) -> dict:
-    """
-    Live quote using yf.download.
-    Commodity futures always trade in USD, so we hard-code that and convert.
-    """
     if not YF_AVAILABLE:
         return {}
     try:
@@ -215,7 +195,6 @@ def live_quote(ticker: str) -> dict:
         change = last_close - prev_close
         pct    = (change / prev_close * 100) if prev_close != 0 else 0.0
 
-        # All commodity futures on Yahoo Finance are quoted in USD
         currency = "USD"
         price_inr, fx_rate, fx_symbol = convert_to_inr(last_close, currency)
 
@@ -233,8 +212,6 @@ def live_quote(ticker: str) -> dict:
     except Exception:
         return {}
 
-
-# ── Quant helpers ─────────────────────────────────────────────────────────────
 
 def compute_returns(series: pd.Series) -> pd.Series:
     return series.pct_change().dropna()
@@ -333,12 +310,10 @@ def build_csv_dataset(tickers: list, days: int) -> str:
     return out.to_csv(index=False)
 
 
-# ── State ─────────────────────────────────────────────────────────────────────
 if "run_commodities" not in st.session_state:
     st.session_state["run_commodities"] = False
 
 
-# ── UI ────────────────────────────────────────────────────────────────────────
 left, right = st.columns([1.05, 1.65], gap="large")
 
 with left:

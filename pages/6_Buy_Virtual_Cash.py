@@ -19,7 +19,7 @@ st.set_page_config(
     page_title="FinSight | Buy Virtual Cash",
     page_icon="💳",
     layout="wide",
-    initial_sidebar_state="collapsed"
+    initial_sidebar_state="expanded"
 )
 
 
@@ -50,7 +50,6 @@ h1, h2, h3 {
     opacity: 1 !important;
 }
 
-/* ✅ Fix white inputs everywhere */
 div[data-baseweb="input"] > div,
 div[data-baseweb="select"] > div,
 div[data-baseweb="base-input"] > div,
@@ -71,7 +70,6 @@ textarea {
     color: rgba(255,255,255,0.55) !important;
 }
 
-/* ✅ Cards */
 .package-card {
     background: rgba(255,255,255,0.04);
     border: 1px solid rgba(255,255,255,0.12);
@@ -87,7 +85,6 @@ textarea {
     border-color: rgba(34,197,94,0.5);
 }
 
-/* Prices */
 .price {
     font-size: 28px;
     font-weight: 950;
@@ -104,7 +101,6 @@ textarea {
     font-size: 14px;
 }
 
-/* ✅ Buttons */
 div.stButton > button {
     background: linear-gradient(135deg, #22C55E, #3B82F6) !important;
     border: none !important;
@@ -121,19 +117,11 @@ div.stButton > button:hover {
     filter: brightness(1.06);
 }
 
-/* Table */
 div[data-testid="stDataFrame"] {
     border-radius: 16px !important;
     overflow: hidden !important;
     border: 1px solid rgba(255,255,255,0.10) !important;
 }
-   
-/* Hide Streamlit header */
-header[data-testid="stHeader"] { display: none !important; }
-div[data-testid="stToolbar"] { display: none !important; }
-#MainMenu { display: none !important; }
-.stDeployButton { display: none !important; }
-</style>
 </style>
 """, unsafe_allow_html=True)
 
@@ -179,16 +167,12 @@ for row in rows:
             """, unsafe_allow_html=True)
 
             if st.button(f"Buy ₹{virtual_amount:,}", key=f"buy_{virtual_amount}"):
-
-                # ✅ create Razorpay order (notes include user_id + virtual_amount)
                 order = create_order(real_price, user_id, virtual_amount)
-
                 st.session_state["pending_payment"] = {
                     "order_id": order["id"],
                     "real": real_price,
                     "virtual": virtual_amount,
                 }
-
                 st.success("✅ Order created. Click below to pay 👇")
 
 
@@ -244,7 +228,6 @@ if "pending_payment" in st.session_state:
     </script>
     """
 
-    # more height so popup overlay UI is not cramped
     st.components.v1.html(payment_html, height=650)
 
     if st.button("❌ Cancel Pending Payment", use_container_width=True):

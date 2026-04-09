@@ -18,7 +18,7 @@ st.set_page_config(
     page_title="FinSight | Paper Trading",
     page_icon="🧾",
     layout="wide",
-    initial_sidebar_state="collapsed"
+    initial_sidebar_state="expanded"
 )
 
 st.markdown("""
@@ -42,7 +42,7 @@ h1, h2, h3, h4, h5 {
     color: rgba(255,255,255,0.96) !important;
     opacity: 1 !important;
 }
-div[data-testid="stCaptionContainer"],
+div[data-testid="stCaptionContainer"], 
 div[data-testid="stCaptionContainer"] * {
     color: rgba(255,255,255,0.78) !important;
     font-weight: 750 !important;
@@ -157,19 +157,6 @@ div[data-testid="stDataFrame"] {
     overflow: hidden !important;
     border: 1px solid rgba(255,255,255,0.10) !important;
 }
-/* Hide Streamlit header and toolbar */
-header[data-testid="stHeader"] {
-    display: none !important;
-}
-div[data-testid="stToolbar"] {
-    display: none !important;
-}
-#MainMenu {
-    display: none !important;
-}
-.stDeployButton {
-    display: none !important;
-}
 @media(max-width: 1200px) {
     .block-container {
         padding-left: 1rem;
@@ -187,62 +174,65 @@ if "paper_selected_ticker" not in st.session_state:
     st.session_state["paper_selected_ticker"] = "AAPL"
 
 
-@st.cache_data(ttl=120)
-def _download_close(ticker: str, period: str = "5d") -> pd.Series:
-    try:
-        df = yf.download(ticker, period=period, interval="1d", progress=False, auto_adjust=True)
-        if df is None or df.empty:
-            return pd.Series(dtype=float)
-        if isinstance(df.columns, pd.MultiIndex):
-            df.columns = df.columns.get_level_values(0)
-        close = df["Close"].dropna()
-        return close
-    except Exception:
-        return pd.Series(dtype=float)
-
-
+# ✅ CLOUD FIX: use Ticker.history() instead of yf.download() for all quotes
+# yf.download() gets rate-limited on cloud IPs; Ticker.history() is more reliable
 @st.cache_data(ttl=120)
 def yf_quote(ticker: str):
-    close = _download_close(ticker, period="5d")
-    if close.empty or len(close) < 2:
+    """Return last close, change, change% using Ticker.history (cloud-safe)"""
+    try:
+        tk = yf.Ticker(ticker)
+        hist = tk.history(period="5d", interval="1d")
+        if hist is None or hist.empty:
+            return None, None, None
+        close = hist["Close"].dropna()
+        if len(close) < 2:
+            return None, None, None
+        last_close = float(close.iloc[-1])
+        prev_close = float(close.iloc[-2])
+        change = last_close - prev_close
+        pct = (change / prev_close) * 100 if prev_close != 0 else 0.0
+        return last_close, change, pct
+    except Exception:
         return None, None, None
-    last = float(close.iloc[-1])
-    prev = float(close.iloc[-2])
-    chg = last - prev
-    pct = (chg / prev * 100) if prev != 0 else 0.0
-    return last, chg, pct
 
 
 @st.cache_data(ttl=300)
-def fx_usdinr() -> float:
-    close = _download_close("USDINR=X", period="5d")
-    if close.empty:
+def fx_usdinr():
+    """USD to INR using Ticker.history (cloud-safe)"""
+    try:
+        tk = yf.Ticker("USDINR=X")
+        hist = tk.history(period="5d", interval="1d")
+        if hist is None or hist.empty:
+            return 0.0
+        return float(hist["Close"].dropna().iloc[-1])
+    except Exception:
         return 0.0
-    return float(close.iloc[-1])
 
 
 @st.cache_data(ttl=60)
 def live_price_inr(ticker: str):
+    """Get live price in INR even for US stocks."""
     try:
-        close = _download_close(ticker, period="5d")
-        if close.empty:
-            return None, ""
+        tk = yf.Ticker(ticker)
+        info = tk.info or {}
+        currency = (info.get("currency") or "").upper()
+
+        hist = tk.history(period="5d", interval="1d")
+        if hist is None or hist.empty:
+            return None, currency
+
+        close = hist["Close"].dropna()
+        if len(close) == 0:
+            return None, currency
+
         price = float(close.iloc[-1])
-        try:
-            info = yf.Ticker(ticker).info or {}
-            currency = (info.get("currency") or "").upper()
-        except Exception:
-            currency = ""
-        if not currency:
-            if ticker.upper().endswith(".NS") or ticker.upper().endswith(".BO"):
-                currency = "INR"
-            else:
-                currency = "USD"
+
         if currency == "USD":
             fx = fx_usdinr()
             if fx > 0:
                 return price * fx, currency
             return None, currency
+
         return price, currency
     except Exception:
         return None, ""
@@ -258,7 +248,6 @@ def fmt_inr(x):
         return "₹0.00"
 
 
-# ── Auth gate ─────────────────────────────────────────────────────────────────
 if not st.session_state["user"]:
     st.title("🧾 FinSight Paper Trading")
     st.caption("Educational simulator. Trade with virtual INR using real market prices (Yahoo Finance).")
@@ -284,10 +273,7 @@ if not st.session_state["user"]:
         signup_pass = st.text_input("New Password", type="password", key="signup_pass")
         if st.button("Create Account", use_container_width=True):
             ok, msg = signup_user(signup_email, signup_pass)
-            if ok:
-                st.success(msg)
-            else:
-                st.error(msg)
+            st.success(msg) if ok else st.error(msg)
 
     st.stop()
 
@@ -297,7 +283,7 @@ user_id = user["id"]
 
 ensure_wallet(user_id)
 
-# ── Top bar ───────────────────────────────────────────────────────────────────
+# Top Bar
 top1, top2, top3 = st.columns([2.3, 2.2, 1.0], gap="large")
 
 with top1:
@@ -318,62 +304,61 @@ with top3:
 
 st.write("")
 
-# ── Market strip ──────────────────────────────────────────────────────────────
+# Market strip
 st.markdown("### Market Overview")
 idx_cols = st.columns(4, gap="large")
 
 indices = [
-    ("NIFTY",     "^NSEI"),
-    ("SENSEX",    "^BSESN"),
+    ("NIFTY", "^NSEI"),
+    ("SENSEX", "^BSESN"),
     ("BANKNIFTY", "^NSEBANK"),
-    ("NASDAQ",    "^IXIC"),
+    ("NASDAQ", "^IXIC"),
 ]
 
 for i, (name, tick) in enumerate(indices):
     price, chg, pct = yf_quote(tick)
     if price is None:
-        idx_cols[i].metric(name, "—", "")
+        idx_cols[i].metric(name, "N/A", "")
     else:
         idx_cols[i].metric(name, f"{price:,.2f}", f"{chg:+.2f} ({pct:+.2f}%)")
 
 st.write("")
 
-# ── Tabs ──────────────────────────────────────────────────────────────────────
+# Tabs
 tab_explore, tab_trade, tab_portfolio, tab_orders = st.tabs(
     ["Explore", "Paper Trade", "Portfolio", "Orders"]
 )
 
-# ── EXPLORE ───────────────────────────────────────────────────────────────────
 with tab_explore:
     st.subheader("Most traded stocks on FinSight")
 
     most_traded = {
-        "Reliance":           "RELIANCE.NS",
-        "TCS":                "TCS.NS",
-        "Infosys":            "INFY.NS",
-        "HDFC Bank":          "HDFCBANK.NS",
-        "ICICI Bank":         "ICICIBANK.NS",
-        "SBI":                "SBIN.NS",
-        "ITC":                "ITC.NS",
-        "Bharti Airtel":      "BHARTIARTL.NS",
-        "Axis Bank":          "AXISBANK.NS",
-        "Kotak Bank":         "KOTAKBANK.NS",
+        "Reliance": "RELIANCE.NS",
+        "TCS": "TCS.NS",
+        "Infosys": "INFY.NS",
+        "HDFC Bank": "HDFCBANK.NS",
+        "ICICI Bank": "ICICIBANK.NS",
+        "SBI": "SBIN.NS",
+        "ITC": "ITC.NS",
+        "Bharti Airtel": "BHARTIARTL.NS",
+        "Axis Bank": "AXISBANK.NS",
+        "Kotak Bank": "KOTAKBANK.NS",
         "Hindustan Unilever": "HINDUNILVR.NS",
-        "L&T":                "LT.NS",
-        "Adani Ports":        "ADANIPORTS.NS",
-        "Tata Steel":         "TATASTEEL.NS",
-        "Wipro":              "WIPRO.NS",
-        "Zomato":             "ZOMATO.NS",
-        "Apple":              "AAPL",
-        "Microsoft":          "MSFT",
-        "Amazon":             "AMZN",
-        "Google":             "GOOGL",
-        "Meta":               "META",
-        "Tesla":              "TSLA",
-        "NVIDIA":             "NVDA",
-        "AMD":                "AMD",
-        "Netflix":            "NFLX",
-        "Intel":              "INTC",
+        "L&T": "LT.NS",
+        "Adani Ports": "ADANIPORTS.NS",
+        "Tata Steel": "TATASTEEL.NS",
+        "Wipro": "WIPRO.NS",
+        "Zomato": "ZOMATO.NS",
+        "Apple": "AAPL",
+        "Microsoft": "MSFT",
+        "Amazon": "AMZN",
+        "Google": "GOOGL",
+        "Meta": "META",
+        "Tesla": "TSLA",
+        "NVIDIA": "NVDA",
+        "AMD": "AMD",
+        "Netflix": "NFLX",
+        "Intel": "INTC",
     }
 
     if search.strip():
@@ -386,7 +371,7 @@ with tab_explore:
         price, chg, pct = yf_quote(tk)
         with grid[i % 4]:
             if price is None:
-                st.metric(f"{nm} ({tk})", "Loading…", "")
+                st.metric(f"{nm} ({tk})", "N/A", "")
             else:
                 st.metric(f"{nm} ({tk})", f"{price:,.2f}", f"{chg:+.2f} ({pct:+.2f}%)")
             if st.button(f"Trade {tk}", key=f"trade_btn_{tk}", use_container_width=True):
@@ -404,7 +389,6 @@ with tab_explore:
         st.dataframe(holdings, use_container_width=True)
 
 
-# ── PAPER TRADE ───────────────────────────────────────────────────────────────
 with tab_trade:
     st.subheader("Paper Trade (Virtual INR)")
 
@@ -424,34 +408,28 @@ with tab_trade:
         if st.button("Fetch Live Price", use_container_width=True):
             p, c = live_price_inr(ticker)
             if p is None:
-                st.error("Could not fetch live price. Check the ticker and try again.")
+                st.error("Could not fetch live price.")
             else:
-                st.success(f"Live Price (INR): ₹{p:,.2f}  |  Currency: {c}")
+                st.success(f"Live Price (INR): ₹{p:,.2f}  | Currency: {c}")
 
-        col1, col2 = st.columns(2)
-        with col1:
+        c1, c2 = st.columns(2)
+        with c1:
             if st.button("✅ BUY", use_container_width=True):
                 p, c = live_price_inr(ticker)
                 if p is None:
                     st.error("Price not available.")
                 else:
                     ok, msg = buy_stock(user_id=user_id, ticker=ticker, qty=float(qty), price_inr=float(p))
-                    if ok:
-                        st.success(msg)
-                    else:
-                        st.error(msg)
+                    st.success(msg) if ok else st.error(msg)
 
-        with col2:
+        with c2:
             if st.button("❌ SELL", use_container_width=True):
                 p, c = live_price_inr(ticker)
                 if p is None:
                     st.error("Price not available.")
                 else:
                     ok, msg = sell_stock(user_id=user_id, ticker=ticker, qty=float(qty), price_inr=float(p))
-                    if ok:
-                        st.success(msg)
-                    else:
-                        st.error(msg)
+                    st.success(msg) if ok else st.error(msg)
 
     with right:
         st.subheader("Portfolio Snapshot")
@@ -470,9 +448,11 @@ with tab_trade:
                 avg = float(avg_raw) if avg_raw is not None else 0.0
                 if np.isnan(avg):
                     avg = 0.0
+
                 live, _ = live_price_inr(t)
                 if live is None or np.isnan(live):
                     live = avg
+
                 val = live * q
                 pnl = (live - avg) * q
                 live_values.append(val)
@@ -494,7 +474,6 @@ with tab_trade:
             st.dataframe(holdings, use_container_width=True)
 
 
-# ── PORTFOLIO ─────────────────────────────────────────────────────────────────
 with tab_portfolio:
     st.subheader("Portfolio")
     holdings = get_holdings(user_id)
@@ -503,8 +482,6 @@ with tab_portfolio:
     else:
         st.dataframe(holdings, use_container_width=True)
 
-
-# ── ORDERS ────────────────────────────────────────────────────────────────────
 with tab_orders:
     st.subheader("Orders / Trades")
     trades = get_trades(user_id)

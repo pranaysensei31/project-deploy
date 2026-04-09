@@ -2,7 +2,8 @@ import streamlit as st
 
 st.set_page_config(
     page_title="FinSight | Investor Education",
-    layout="wide"
+    layout="wide",
+    initial_sidebar_state="expanded"
 )
 
 st.markdown("""
@@ -98,10 +99,6 @@ st.markdown("""
         border-top: 1px solid rgba(255,255,255,0.10);
         margin: 26px 0px;
     }
-              header[data-testid="stHeader"] { display: none !important; }
-    div[data-testid="stToolbar"] { display: none !important; }
-    #MainMenu { display: none !important; }
-    .stDeployButton { display: none !important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -138,7 +135,7 @@ Owning a share represents ownership in the company and can produce returns throu
 - **Capital gains** (price increases)
 - **Dividends** (profit distribution to shareholders)
 """)
-    st.markdown('<div class="callout">Professional view: stock markets exist primarily to allocate capital efficiently and enable price discovery — not just “buy low, sell high”.</div>', unsafe_allow_html=True)
+    st.markdown('<div class="callout">Professional view: stock markets exist primarily to allocate capital efficiently and enable price discovery — not just "buy low, sell high".</div>', unsafe_allow_html=True)
     st.markdown('</div>', unsafe_allow_html=True)
 
     st.markdown('<div class="card">', unsafe_allow_html=True)
@@ -178,7 +175,7 @@ Exchanges exist to provide:
 - **transparency**
 - standardized trading rules
 """)
-    st.markdown('<div class="callout">Professional term: exchanges enable “order matching” and make price information publicly available.</div>', unsafe_allow_html=True)
+    st.markdown('<div class="callout">Professional term: exchanges enable "order matching" and make price information publicly available.</div>', unsafe_allow_html=True)
     st.markdown('</div>', unsafe_allow_html=True)
 
     st.markdown('<div class="card">', unsafe_allow_html=True)
@@ -200,7 +197,7 @@ Common short-term price drivers:
 - sector sentiment
 - geopolitical news
 """)
-    st.markdown('<div class="callout">Investing insight: the market reacts to changes in expectations — not only whether the news is “good” or “bad”.</div>', unsafe_allow_html=True)
+    st.markdown('<div class="callout">Investing insight: the market reacts to changes in expectations — not only whether the news is "good" or "bad".</div>', unsafe_allow_html=True)
     st.markdown('</div>', unsafe_allow_html=True)
 
     st.markdown('<div class="card">', unsafe_allow_html=True)
@@ -246,7 +243,7 @@ with right:
 - trading without understanding volatility and drawdowns  
 - buying based on hype without reading fundamentals  
 - ignoring diversification  
-- confusing “good company” with “good entry price”  
+- confusing "good company" with "good entry price"  
 - investing without a time horizon  
 """)
     st.markdown('</div>', unsafe_allow_html=True)
@@ -286,9 +283,4 @@ In the primary market (IPO/new issuance): yes. In normal trading (secondary): us
 AI should support learning and analysis. Final decisions should reflect your own risk tolerance and time horizon.
 """)
 
-
-
 st.caption("FinSight Education • For learning purposes only • Not financial advice")
-
-
-

@@ -7,7 +7,7 @@ import yfinance as yf
 st.set_page_config(
     page_title="FinSight | AI Financial Advisor",
     layout="wide",
-    initial_sidebar_state="collapsed"
+    initial_sidebar_state="expanded"
 )
 
 # Custom CSS
@@ -27,19 +27,6 @@ st.markdown("""
     max-width: 1250px;
     padding-top: 2rem;
     padding-bottom: 2rem;
-}
-            /* Hide Streamlit default header */
-header[data-testid="stHeader"] {
-    display: none !important;
-}
-div[data-testid="stToolbar"] {
-    display: none !important;
-}
-#MainMenu {
-    display: none !important;
-}
-.stDeployButton {
-    display: none !important;
 }
 
 /* =========================
@@ -234,21 +221,6 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# ✅ REMOVED: Navigation buttons block (big green pills)
-# nav_cols = st.columns([1, 1, 1, 1, 6])
-# with nav_cols[0]:
-#     if st.button("Home", use_container_width=True):
-#         st.rerun()
-# with nav_cols[1]:
-#     if st.button("Stocks", use_container_width=True):
-#         st.switch_page("pages/1_Stocks.py")
-# with nav_cols[2]:
-#     if st.button("Mutual Funds", use_container_width=True):
-#         st.switch_page("pages/2_Mutual_funds.py")
-# with nav_cols[3]:
-#     if st.button("Commodities", use_container_width=True):
-#         st.switch_page("pages/3_commodities.py")
-
 st.markdown("<br>", unsafe_allow_html=True)
 
 # Hero Section
@@ -272,12 +244,11 @@ st.markdown("""
 st.markdown('<div class="section-header"> Market Overview</div>', unsafe_allow_html=True)
 
 @st.cache_data(ttl=300)
-@st.cache_data(ttl=300)
 def get_index_data(ticker):
     try:
         data = yf.Ticker(ticker)
-        hist = data.history(period="5d")  # ✅ use 5d instead of 2d
-        hist = hist['Close'].dropna()     # ✅ drop NaN rows first
+        hist = data.history(period="5d")
+        hist = hist['Close'].dropna()
         
         if len(hist) >= 2:
             current = float(hist.iloc[-1])
@@ -287,7 +258,7 @@ def get_index_data(ticker):
             return current, change, change_pct
         return None, None, None
     except Exception as e:
-        print(f"Error fetching {ticker}: {e}")  # ✅ log the error
+        print(f"Error fetching {ticker}: {e}")
         return None, None, None
 
 indices = {
@@ -301,7 +272,7 @@ market_cols = st.columns(4)
 for idx, (name, ticker) in enumerate(indices.items()):
     price, change, change_pct = get_index_data(ticker)
     
-    if price:
+    if price is not None:
         change_class = "positive" if change >= 0 else "negative"
         sign = "+" if change >= 0 else ""
         
@@ -386,7 +357,7 @@ trending_stocks_right = {
 with trending_cols[0]:
     for name, ticker in trending_stocks_left.items():
         price, change, change_pct = get_index_data(ticker)
-        if price:
+        if price is not None:
             change_class = "positive" if change >= 0 else "negative"
             sign = "+" if change >= 0 else ""
             st.markdown(f"""
@@ -402,7 +373,7 @@ with trending_cols[0]:
 with trending_cols[1]:
     for name, ticker in trending_stocks_right.items():
         price, change, change_pct = get_index_data(ticker)
-        if price:
+        if price is not None:
             change_class = "positive" if change >= 0 else "negative"
             sign = "+" if change >= 0 else ""
             st.markdown(f"""
