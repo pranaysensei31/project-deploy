@@ -55,15 +55,8 @@ SMART_TICKERS = {
 }
 
 
-# ── Cloud-safe data layer ─────────────────────────────────────────────────────
-# Rule: ALWAYS use yf.download() — never Ticker.history() — on Streamlit Cloud.
-
 @st.cache_data(ttl=180)
 def _safe_download(ticker: str, period: str = "5d") -> pd.Series:
-    """
-    Download Close prices via yf.download (cloud-safe).
-    Returns a plain pd.Series of float values indexed by date.
-    """
     if not YF_AVAILABLE:
         return pd.Series(dtype=float)
     try:
@@ -85,7 +78,6 @@ def _safe_download(ticker: str, period: str = "5d") -> pd.Series:
 
 @st.cache_data(ttl=600)
 def get_fx_rate(symbol: str) -> float:
-    """e.g. symbol = 'USDINR=X' — cloud-safe via yf.download."""
     close = _safe_download(symbol, period="5d")
     if close.empty:
         return 0.0
@@ -93,7 +85,6 @@ def get_fx_rate(symbol: str) -> float:
 
 
 def get_live_quote(ticker: str) -> dict:
-    """Live quote using yf.download — no Ticker.history()."""
     if not YF_AVAILABLE:
         return {}
     try:
@@ -106,12 +97,11 @@ def get_live_quote(ticker: str) -> dict:
         change     = last_close - prev_close
         change_pct = (change / prev_close * 100) if prev_close != 0 else 0.0
 
-        # Infer currency from ticker suffix (avoids unreliable Ticker.info on cloud)
         ticker_up = ticker.upper()
         if ticker_up.endswith(".NS") or ticker_up.endswith(".BO"):
             currency = "INR"
         else:
-            currency = "USD"   # safe default for US-listed tickers
+            currency = "USD"
 
         price_inr = None
         fx_rate   = None
@@ -142,7 +132,6 @@ def get_live_quote(ticker: str) -> dict:
 
 @st.cache_data(ttl=600)
 def get_stock_summary(ticker: str) -> dict:
-    """Fundamental info — Ticker.info is best-effort on cloud; graceful fallback."""
     if not YF_AVAILABLE:
         return {}
     try:
@@ -175,7 +164,6 @@ def get_stock_summary(ticker: str) -> dict:
 
 @st.cache_data(ttl=300)
 def fetch_prices(ticker: str, days: int) -> pd.DataFrame:
-    """Return a DataFrame with columns [date, close] — cloud-safe."""
     close = _safe_download(ticker, period=f"{days}d")
     if close.empty:
         return pd.DataFrame()
@@ -187,7 +175,37 @@ def fetch_prices(ticker: str, days: int) -> pd.DataFrame:
     return df[["date", "close"]]
 
 
-# ── Quant helpers ─────────────────────────────────────────────────────────────
+@st.cache_data(ttl=3600)
+def fetch_benchmark_prices(ticker: str, start_date, end_date) -> pd.DataFrame:
+    if not YF_AVAILABLE:
+        return pd.DataFrame()
+    try:
+        df = yf.download(ticker, start=start_date, end=end_date, interval="1d", progress=False)
+        if df is None or df.empty:
+            return pd.DataFrame()
+        if isinstance(df.columns, pd.MultiIndex):
+            df.columns = df.columns.get_level_values(0)
+        df = df.reset_index()
+        if "Date" not in df.columns or "Close" not in df.columns:
+            return pd.DataFrame()
+        df.rename(columns={"Date": "date", "Close": "close"}, inplace=True)
+        df = df.dropna(subset=["date", "close"])
+        df["date"]  = pd.to_datetime(df["date"], errors="coerce")
+        df["close"] = pd.to_numeric(df["close"], errors="coerce")
+        df = df.dropna(subset=["date", "close"]).sort_values("date")
+        return df[["date", "close"]]
+    except Exception:
+        return pd.DataFrame()
+
+
+def normalize_growth(series: pd.Series) -> pd.Series:
+    if series is None or len(series) == 0:
+        return series
+    first = float(series.iloc[0])
+    if first == 0:
+        return series
+    return series / first
+
 
 def extract_tickers(query: str) -> list:
     raw = re.findall(r"\b[A-Za-z]{1,12}(?:\.[A-Za-z]{1,6})?\b", query)
@@ -467,11 +485,10 @@ st.markdown("""
         border: none !important; width: 100%; box-shadow: 0 18px 60px rgba(0,0,0,0.45); transition: 0.2s;
     }
     div.stButton > button:hover { transform: translateY(-1px); filter: brightness(1.06); }
-            header[data-testid="stHeader"] { display: none !important; }
+    header[data-testid="stHeader"] { display: none !important; }
     div[data-testid="stToolbar"] { display: none !important; }
     #MainMenu { display: none !important; }
     .stDeployButton { display: none !important; }
-            
 </style>
 """, unsafe_allow_html=True)
 
@@ -488,6 +505,7 @@ st.markdown("""
     <span class="tag">Fundamentals</span>
     <span class="tag">Risk metrics</span>
     <span class="tag">Charts</span>
+    <span class="tag">Benchmark Comparison</span>
 </div>
 """, unsafe_allow_html=True)
 
@@ -647,9 +665,10 @@ Comparison:
                 "response":  advisor[:2000] if advisor else "Generated full report",
             })
 
-            t0, t1, t2, t3, t4, t5 = st.tabs(
-                ["Overview", "Advisor Summary", "Fundamentals", "Risk + Recommendation", "Compare", "Chart + CSV"]
-            )
+            t0, t1, t2, t3, t4, t5, t6 = st.tabs([
+                "Overview", "Advisor Summary", "Fundamentals",
+                "Risk + Recommendation", "Compare", "Benchmark", "Chart + CSV"
+            ])
 
             with t0:
                 st.subheader("Company Overview")
@@ -746,7 +765,102 @@ Comparison:
                     worst = comp_df.iloc[-1]["Ticker"]
                     st.caption(f"Top risk-adjusted (Sharpe): {best} | Weakest: {worst}")
 
+            # ── NEW: Benchmark Comparison tab ─────────────────────────────
             with t5:
+                st.subheader(f"Benchmark Comparison — {primary} vs NIFTY 50 & NASDAQ")
+
+                if df_primary.empty:
+                    st.info("Not enough stock data for benchmark comparison.")
+                elif not YF_AVAILABLE:
+                    st.info("yfinance not available.")
+                else:
+                    start_date = df_primary["date"].iloc[0]
+                    end_date   = df_primary["date"].iloc[-1]
+
+                    nifty  = fetch_benchmark_prices("^NSEI",  start_date, end_date)
+                    nasdaq = fetch_benchmark_prices("^IXIC",  start_date, end_date)
+
+                    # align stock with each benchmark
+                    def align_stock_bench(df_stock: pd.DataFrame, df_bench: pd.DataFrame) -> pd.DataFrame:
+                        s = df_stock.rename(columns={"close": "stock"}).set_index("date")
+                        b = df_bench.rename(columns={"close": "bench"}).set_index("date")
+                        merged = s.join(b, how="inner").dropna().reset_index()
+                        return merged
+
+                    merged_nifty  = align_stock_bench(df_primary, nifty)  if not nifty.empty  else pd.DataFrame()
+                    merged_nasdaq = align_stock_bench(df_primary, nasdaq) if not nasdaq.empty else pd.DataFrame()
+
+                    if merged_nifty.empty and merged_nasdaq.empty:
+                        st.info("Benchmark data not available right now. Try again later.")
+                    else:
+                        # CAGR helper
+                        def series_cagr(series: pd.Series, dates: pd.Series) -> float:
+                            try:
+                                years = max(1e-9, (dates.iloc[-1] - dates.iloc[0]).days / 365.25)
+                                return float((series.iloc[-1] / series.iloc[0]) ** (1 / years) - 1)
+                            except Exception:
+                                return float("nan")
+
+                        stock_cagr = series_cagr(df_primary["close"], df_primary["date"])
+
+                        c1, c2, c3 = st.columns(3)
+                        c1.metric(f"{primary} CAGR", f"{stock_cagr:.2%}" if not np.isnan(stock_cagr) else "N/A")
+
+                        if not merged_nifty.empty:
+                            nifty_cagr = series_cagr(merged_nifty["bench"], merged_nifty["date"])
+                            c2.metric("NIFTY 50 CAGR", f"{nifty_cagr:.2%}" if not np.isnan(nifty_cagr) else "N/A")
+                        else:
+                            c2.metric("NIFTY 50 CAGR", "N/A")
+                            nifty_cagr = float("nan")
+
+                        if not merged_nasdaq.empty:
+                            nasdaq_cagr = series_cagr(merged_nasdaq["bench"], merged_nasdaq["date"])
+                            c3.metric("NASDAQ CAGR", f"{nasdaq_cagr:.2%}" if not np.isnan(nasdaq_cagr) else "N/A")
+                        else:
+                            c3.metric("NASDAQ CAGR", "N/A")
+                            nasdaq_cagr = float("nan")
+
+                        # Normalized growth chart
+                        figb = go.Figure()
+
+                        stock_norm = normalize_growth(df_primary["close"])
+                        figb.add_trace(go.Scatter(
+                            x=df_primary["date"], y=stock_norm,
+                            mode="lines", name=primary
+                        ))
+
+                        if not merged_nifty.empty:
+                            figb.add_trace(go.Scatter(
+                                x=merged_nifty["date"],
+                                y=normalize_growth(merged_nifty["bench"]),
+                                mode="lines", name="NIFTY 50"
+                            ))
+
+                        if not merged_nasdaq.empty:
+                            figb.add_trace(go.Scatter(
+                                x=merged_nasdaq["date"],
+                                y=normalize_growth(merged_nasdaq["bench"]),
+                                mode="lines", name="NASDAQ"
+                            ))
+
+                        figb.update_layout(
+                            title="Benchmark Growth Comparison (Normalized, Start = 1.0)",
+                            xaxis_title="Date",
+                            yaxis_title="Growth Index",
+                            height=460
+                        )
+                        st.plotly_chart(figb, use_container_width=True)
+
+                        # Alpha captions
+                        alpha_parts = []
+                        if not np.isnan(stock_cagr) and not np.isnan(nifty_cagr):
+                            alpha_parts.append(f"vs NIFTY 50: {stock_cagr - nifty_cagr:+.2%}")
+                        if not np.isnan(stock_cagr) and not np.isnan(nasdaq_cagr):
+                            alpha_parts.append(f"vs NASDAQ: {stock_cagr - nasdaq_cagr:+.2%}")
+                        if alpha_parts:
+                            st.caption(f"Outperformance — " + " | ".join(alpha_parts))
+
+            with t6:
                 st.subheader("Chart")
                 st.plotly_chart(fig, use_container_width=True)
                 st.write("")
