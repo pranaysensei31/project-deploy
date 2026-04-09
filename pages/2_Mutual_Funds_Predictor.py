@@ -1,3 +1,4 @@
+import os
 import re
 import math
 import numpy as np
@@ -12,6 +13,13 @@ try:
     YF_AVAILABLE = True
 except Exception:
     YF_AVAILABLE = False
+
+try:
+    from langchain_groq import ChatGroq
+    from langchain_core.messages import HumanMessage
+    GROQ_AVAILABLE = True
+except Exception:
+    GROQ_AVAILABLE = False
 
 
 st.set_page_config(
@@ -202,7 +210,7 @@ st.markdown("""
         transform: translateY(-1px) !important;
         filter: brightness(1.06) !important;
     }
-            /* Hide Streamlit header */
+    /* Hide Streamlit header */
     header[data-testid="stHeader"] { display: none !important; }
     div[data-testid="stToolbar"] { display: none !important; }
     #MainMenu { display: none !important; }
@@ -233,10 +241,43 @@ st.markdown("""
     <span class="tag">Risk Analysis</span>
     <span class="tag">Benchmark Comparison</span>
     <span class="tag">Chart + CSV</span>
+    <span class="tag">AI Advisor</span>
 </div>
 """, unsafe_allow_html=True)
 
 
+# ── Groq Advisor ──────────────────────────────────────────────────────────────
+def llm_advisor_summary(fund_name: str, analysis_text: str) -> str:
+    if not GROQ_AVAILABLE:
+        return ""
+    key = os.getenv("GROQ_API_KEY", "")
+    if not key.strip():
+        try:
+            key = st.secrets.get("GROQ_API_KEY", "")
+        except Exception:
+            key = ""
+    if not key.strip():
+        return ""
+    try:
+        chat = ChatGroq(model_name="llama-3.1-8b-instant", temperature=0.3, groq_api_key=key)
+        prompt = f"""You are a professional mutual fund advisor.
+Fund: {fund_name}
+
+Create a short professional advisor-style summary:
+- insights about this fund
+- risk assessment
+- suggestion (no guarantee)
+- caution for investors
+
+ANALYSIS DATA:
+{analysis_text}
+"""
+        return chat.invoke([HumanMessage(content=prompt)]).content.strip()
+    except Exception:
+        return ""
+
+
+# ── AMFI + mfapi helpers ──────────────────────────────────────────────────────
 @st.cache_data(ttl=86400)
 def fetch_amfi_navall_text():
     url = "https://www.amfiindia.com/spages/NAVAll.txt"
@@ -420,10 +461,8 @@ def normalize_growth(series: pd.Series) -> pd.Series:
 def align_series_on_dates(df_nav: pd.DataFrame, df_bench: pd.DataFrame) -> pd.DataFrame:
     fund = df_nav[["date", "nav"]].copy()
     fund.rename(columns={"nav": "fund"}, inplace=True)
-
     bench = df_bench[["date", "close"]].copy()
     bench.rename(columns={"close": "bench"}, inplace=True)
-
     merged = pd.merge(fund, bench, on="date", how="inner")
     merged = merged.dropna()
     return merged
@@ -678,7 +717,26 @@ with right:
                 r_1y = trailing_return(df_nav, 365)
                 cagr = cagr_from_nav(df_nav)
 
-                tab0, tab1, tab2, tab3 = st.tabs(["Overview", "Risk Analysis", "Benchmark Comparison", "Chart + CSV"])
+                # ── Groq advisor ──────────────────────────────────────────
+                analysis_text = f"""
+Fund: {chosen_display}
+Latest NAV: {latest_nav:.2f}
+NAV Date: {latest_date}
+Risk Label: {risk_label(vol)}
+1M Return: {f"{r_1m:.2%}" if not np.isnan(r_1m) else "N/A"}
+3M Return: {f"{r_3m:.2%}" if not np.isnan(r_3m) else "N/A"}
+1Y Return: {f"{r_1y:.2%}" if not np.isnan(r_1y) else "N/A"}
+CAGR (overall): {f"{cagr:.2%}" if not np.isnan(cagr) else "N/A"}
+Volatility (annualized): {f"{vol:.2%}" if not np.isnan(vol) else "N/A"}
+Sharpe Ratio: {f"{sr:.2f}" if not np.isnan(sr) else "N/A"}
+Max Drawdown: {f"{mdd:.2%}" if not np.isnan(mdd) else "N/A"}
+"""
+                advisor = llm_advisor_summary(chosen_display, analysis_text)
+
+                # ── Tabs ──────────────────────────────────────────────────
+                tab0, tab1, tab2, tab3, tab4 = st.tabs([
+                    "Overview", "Advisor Summary", "Risk Analysis", "Benchmark Comparison", "Chart + CSV"
+                ])
 
                 with tab0:
                     st.subheader("Fund Overview")
@@ -697,6 +755,13 @@ with right:
                     m8.metric("CAGR (overall)", f"{cagr:.2%}" if not np.isnan(cagr) else "N/A")
 
                 with tab1:
+                    st.subheader("Advisor Summary")
+                    if advisor:
+                        st.markdown(advisor)
+                    else:
+                        st.info("Groq API not configured. Set GROQ_API_KEY in Streamlit secrets to enable AI advisor summary.")
+
+                with tab2:
                     st.subheader("Risk Analysis")
                     r1, r2, r3, r4 = st.columns(4)
                     r1.metric("Volatility (ann.)", f"{vol:.2%}" if not np.isnan(vol) else "N/A")
@@ -704,7 +769,7 @@ with right:
                     r3.metric("Max Drawdown", f"{mdd:.2%}" if not np.isnan(mdd) else "N/A")
                     r4.metric("Data points", str(len(df_nav)))
 
-                with tab2:
+                with tab3:
                     st.subheader("Benchmark Comparison (NIFTY 50 + SENSEX)")
 
                     if not YF_AVAILABLE:
@@ -727,12 +792,10 @@ with right:
                             else:
                                 fund_growth = normalize_growth(m1["fund"])
                                 nifty_growth = normalize_growth(m1["bench"])
-
                                 fund_growth2 = normalize_growth(m2["fund"])
                                 sensex_growth = normalize_growth(m2["bench"])
 
                                 fund_cagr = cagr_from_nav(df_nav)
-
                                 nifty_cagr = float((nifty["close"].iloc[-1] / nifty["close"].iloc[0]) ** (365.25 / max(1, (nifty["date"].iloc[-1] - nifty["date"].iloc[0]).days)) - 1)
                                 sensex_cagr = float((sensex["close"].iloc[-1] / sensex["close"].iloc[0]) ** (365.25 / max(1, (sensex["date"].iloc[-1] - sensex["date"].iloc[0]).days)) - 1)
 
@@ -745,7 +808,6 @@ with right:
                                 figb.add_trace(go.Scatter(x=m1["date"], y=fund_growth, mode="lines", name="Fund (Growth Index)"))
                                 figb.add_trace(go.Scatter(x=m1["date"], y=nifty_growth, mode="lines", name="NIFTY 50"))
                                 figb.add_trace(go.Scatter(x=m2["date"], y=sensex_growth, mode="lines", name="SENSEX"))
-
                                 figb.update_layout(
                                     title="Benchmark Growth Comparison (Normalized)",
                                     xaxis_title="Date",
@@ -754,22 +816,15 @@ with right:
                                 )
                                 st.plotly_chart(figb, use_container_width=True)
 
-                                if not np.isnan(fund_cagr) and not np.isnan(nifty_cagr):
-                                    alpha_nifty = fund_cagr - nifty_cagr
-                                else:
-                                    alpha_nifty = float("nan")
-
-                                if not np.isnan(fund_cagr) and not np.isnan(sensex_cagr):
-                                    alpha_sensex = fund_cagr - sensex_cagr
-                                else:
-                                    alpha_sensex = float("nan")
+                                alpha_nifty = fund_cagr - nifty_cagr if not (np.isnan(fund_cagr) or np.isnan(nifty_cagr)) else float("nan")
+                                alpha_sensex = fund_cagr - sensex_cagr if not (np.isnan(fund_cagr) or np.isnan(sensex_cagr)) else float("nan")
 
                                 st.caption(
                                     f"Outperformance vs NIFTY50: {alpha_nifty:+.2%} | "
                                     f"vs SENSEX: {alpha_sensex:+.2%}"
                                 )
 
-                with tab3:
+                with tab4:
                     st.subheader("NAV Chart")
                     fig = go.Figure()
                     fig.add_trace(go.Scatter(
@@ -801,12 +856,10 @@ with right:
     st.markdown("</div>", unsafe_allow_html=True)
 
 
-
 st.caption("FinSight • Mutual Funds • AMFI NAV + mfapi.in + Benchmarks")
-# Floating chatbot (if exists)
+
 try:
     from utils.floating_chatbot import render_floating_chatbot
     render_floating_chatbot()
 except ImportError:
     pass
-
