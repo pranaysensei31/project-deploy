@@ -202,6 +202,11 @@ st.markdown("""
         transform: translateY(-1px) !important;
         filter: brightness(1.06) !important;
     }
+            /* Hide Streamlit header */
+    header[data-testid="stHeader"] { display: none !important; }
+    div[data-testid="stToolbar"] { display: none !important; }
+    #MainMenu { display: none !important; }
+    .stDeployButton { display: none !important; }
 
     div[data-baseweb="select"] * {
         color: #ffffff !important;
