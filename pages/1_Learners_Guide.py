@@ -98,6 +98,10 @@ st.markdown("""
         border-top: 1px solid rgba(255,255,255,0.10);
         margin: 26px 0px;
     }
+              header[data-testid="stHeader"] { display: none !important; }
+    div[data-testid="stToolbar"] { display: none !important; }
+    #MainMenu { display: none !important; }
+    .stDeployButton { display: none !important; }
 </style>
 """, unsafe_allow_html=True)
 
