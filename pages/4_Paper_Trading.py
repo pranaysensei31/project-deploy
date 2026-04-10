@@ -16,7 +16,6 @@ from utils.trading_db import (
 
 st.set_page_config(
     page_title="FinSight | Paper Trading",
-    page_icon="🧾",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -249,7 +248,7 @@ def fmt_inr(x):
 
 
 if not st.session_state["user"]:
-    st.title("🧾 FinSight Paper Trading")
+    st.title("FinSight Paper Trading")
     st.caption("Educational simulator. Trade with virtual INR using real market prices (Yahoo Finance).")
 
     c1, c2 = st.columns(2, gap="large")
@@ -287,7 +286,7 @@ ensure_wallet(user_id)
 top1, top2, top3 = st.columns([2.3, 2.2, 1.0], gap="large")
 
 with top1:
-    st.markdown("## 📈 FinSight Dashboard")
+    st.markdown("## FinSight Dashboard")
 
 with top2:
     search = st.text_input(
@@ -414,7 +413,7 @@ with tab_trade:
 
         c1, c2 = st.columns(2)
         with c1:
-            if st.button("✅ BUY", use_container_width=True):
+            if st.button("BUY", use_container_width=True):
                 p, c = live_price_inr(ticker)
                 if p is None:
                     st.error("Price not available.")
@@ -423,7 +422,7 @@ with tab_trade:
                     st.success(msg) if ok else st.error(msg)
 
         with c2:
-            if st.button("❌ SELL", use_container_width=True):
+            if st.button("SELL", use_container_width=True):
                 p, c = live_price_inr(ticker)
                 if p is None:
                     st.error("Price not available.")
