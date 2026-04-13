@@ -173,8 +173,6 @@ if "paper_selected_ticker" not in st.session_state:
     st.session_state["paper_selected_ticker"] = "AAPL"
 
 
-# ✅ CLOUD FIX: use Ticker.history() instead of yf.download() for all quotes
-# yf.download() gets rate-limited on cloud IPs; Ticker.history() is more reliable
 @st.cache_data(ttl=120)
 def yf_quote(ticker: str):
     """Return last close, change, change% using Ticker.history (cloud-safe)"""
@@ -272,7 +270,10 @@ if not st.session_state["user"]:
         signup_pass = st.text_input("New Password", type="password", key="signup_pass")
         if st.button("Create Account", use_container_width=True):
             ok, msg = signup_user(signup_email, signup_pass)
-            st.success(msg) if ok else st.error(msg)
+            if ok:
+                st.success(msg)
+            else:
+                st.error(msg)
 
     st.stop()
 
@@ -419,7 +420,10 @@ with tab_trade:
                     st.error("Price not available.")
                 else:
                     ok, msg = buy_stock(user_id=user_id, ticker=ticker, qty=float(qty), price_inr=float(p))
-                    st.success(msg) if ok else st.error(msg)
+                    if ok:
+                        st.success(msg)
+                    else:
+                        st.error(msg)
 
         with c2:
             if st.button("SELL", use_container_width=True):
@@ -428,7 +432,10 @@ with tab_trade:
                     st.error("Price not available.")
                 else:
                     ok, msg = sell_stock(user_id=user_id, ticker=ticker, qty=float(qty), price_inr=float(p))
-                    st.success(msg) if ok else st.error(msg)
+                    if ok:
+                        st.success(msg)
+                    else:
+                        st.error(msg)
 
     with right:
         st.subheader("Portfolio Snapshot")
